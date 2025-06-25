@@ -95,7 +95,6 @@ public class CouponTemplateServiceImpl extends ServiceImpl<CouponTemplateMapper,
     private final CouponTemplateMapper couponTemplateMapper;
     private final MerchantAdminChainContext merchantAdminChainContext;
     private final StringRedisTemplate stringRedisTemplate;
-    private final CouponTemplateService couponTemplateService;
 
 
     @LogRecord(
