@@ -34,7 +34,9 @@
 
 package com.nageoffer.onecoupon.merchant.admin.dao.mapper;
 
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.nageoffer.onecoupon.merchant.admin.dao.entity.CouponTemplateDO;
 import org.apache.ibatis.annotations.Param;
 
@@ -46,4 +48,7 @@ import org.apache.ibatis.annotations.Param;
  * 开发时间：2024-07-08
  */
 public interface CouponTemplateMapper extends BaseMapper<CouponTemplateDO> {
+
+
+    int increaseNumberCouponTemplate(@Param("shopNumber") Long shopNumber, @Param("couponTemplateId") String couponTemplateId, @Param("number") Integer number);
 }

@@ -63,23 +63,10 @@ import java.util.Map;
 public final class MerchantAdminChainContext<T> implements ApplicationContextAware, CommandLineRunner {
 
     /**
-     * 应用上下文，我们这里通过 Spring IOC 获取 Bean 实例
+     * 应用上下文，通过 Spring IOC 获取 Bean 实例
      */
     private ApplicationContext applicationContext;
-    /**
-     * 保存商家后管责任链实现类
-     * <p>
-     * Key：{@link MerchantAdminAbstractChainHandler#mark()}
-     * Val：{@link MerchantAdminAbstractChainHandler} 一组责任链实现 Spring Bean 集合
-     * <p>
-     * 比如有一个优惠券模板创建责任链，实例如下：
-     * Key：MERCHANT_ADMIN_CREATE_COUPON_TEMPLATE_KEY
-     * Val：
-     * - 验证优惠券信息基本参数是否必填 —— 执行器 {@link CouponTemplateCreateParamNotNullChainFilter}
-     * - 验证优惠券信息基本参数是否按照格式传递 —— 执行器 {@link CouponTemplateCreateParamBaseVerifyChainFilter}
-     * - 验证优惠券信息基本参数是否正确，比如商品数据是否存在等 —— 执行器 {@link CouponTemplateCreateParamVerifyChainFilter}
-     * - ......
-     */
+
     private final Map<String, List<MerchantAdminAbstractChainHandler>> abstractChainHandlerContainer = new HashMap<>();
 
     /**
@@ -101,12 +88,14 @@ public final class MerchantAdminChainContext<T> implements ApplicationContextAwa
     public void run(String... args) throws Exception {
         // 从 Spring IOC 容器中获取指定接口 Spring Bean 集合
         Map<String, MerchantAdminAbstractChainHandler> chainFilterMap = applicationContext.getBeansOfType(MerchantAdminAbstractChainHandler.class);
+
         chainFilterMap.forEach((beanName, bean) -> {
             // 判断 Mark 是否已经存在抽象责任链容器中，如果已经存在直接向集合新增；如果不存在，创建 Mark 和对应的集合
             List<MerchantAdminAbstractChainHandler> abstractChainHandlers = abstractChainHandlerContainer.getOrDefault(bean.mark(), new ArrayList<>());
             abstractChainHandlers.add(bean);
             abstractChainHandlerContainer.put(bean.mark(), abstractChainHandlers);
         });
+
         abstractChainHandlerContainer.forEach((mark, unsortedChainHandlers) -> {
             // 对每个 Mark 对应的责任链实现类集合进行排序，优先级小的在前
             unsortedChainHandlers.sort(Comparator.comparing(Ordered::getOrder));
