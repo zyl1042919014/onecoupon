@@ -1,6 +1,7 @@
 package com.nageoffer.onecoupon.merchant.admin.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.IdUtil;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.fastjson2.JSONObject;
@@ -13,16 +14,24 @@ import com.nageoffer.onecoupon.merchant.admin.dao.entity.CouponTaskDO;
 import com.nageoffer.onecoupon.merchant.admin.dao.mapper.CouponTaskMapper;
 import com.nageoffer.onecoupon.merchant.admin.dto.req.CouponTaskCreateReqDTO;
 import com.nageoffer.onecoupon.merchant.admin.dto.resp.CouponTemplateQueryRespDTO;
+import com.nageoffer.onecoupon.merchant.admin.mq.event.CouponTaskExecuteEvent;
+import com.nageoffer.onecoupon.merchant.admin.mq.producer.CouponTaskActualExecuteProducer;
 import com.nageoffer.onecoupon.merchant.admin.service.CouponTaskService;
 import com.nageoffer.onecoupon.merchant.admin.service.CouponTemplateService;
 import com.nageoffer.onecoupon.merchant.admin.service.handler.excel.RowCountListener;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.common.message.MessageConst;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.redisson.api.RBlockingDeque;
 import org.redisson.api.RDelayedQueue;
 import org.redisson.api.RedissonClient;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +45,7 @@ public class CouponTaskServiceImpl extends ServiceImpl<CouponTaskMapper, CouponT
     private final CouponTaskMapper couponTaskMapper;
     private final CouponTemplateService couponTemplateService;
     private final RedissonClient redissonClient;
+    private final CouponTaskActualExecuteProducer couponTaskActualExecuteProducer;
 
     private final ExecutorService executorService = new ThreadPoolExecutor(
             Runtime.getRuntime().availableProcessors(),
@@ -69,8 +79,6 @@ public class CouponTaskServiceImpl extends ServiceImpl<CouponTaskMapper, CouponT
         // 保存优惠券推送任务记录到数据库
         couponTaskMapper.insert(couponTaskDO);
 
-
-
         JSONObject delayJsonObject = JSONObject
                 .of("fileAddress", requestParam.getFileAddress(), "couponTaskId", couponTaskDO.getId());
         executorService.execute(() -> refreshCouponTaskSendNum(delayJsonObject));
@@ -80,9 +88,13 @@ public class CouponTaskServiceImpl extends ServiceImpl<CouponTaskMapper, CouponT
         // 这里延迟时间设置 20 秒，原因是笃定上面线程池 20 秒之内就能结束任务
         delayedQueue.offer(delayJsonObject, 20, TimeUnit.SECONDS);
 
-
+        CouponTaskExecuteEvent couponTaskExecuteEvent = CouponTaskExecuteEvent.builder()
+                .couponTaskId(couponTaskDO.getId())
+                .build();
+        couponTaskActualExecuteProducer.sendMessage(couponTaskExecuteEvent);
 
     }
+
     private void refreshCouponTaskSendNum(JSONObject delayJsonObject) {
         // 通过 EasyExcel 监听器获取 Excel 中所有行数
         RowCountListener listener = new RowCountListener();
